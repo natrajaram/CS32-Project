@@ -59,25 +59,25 @@ The algorithm iteratively selects the best-scoring pin while accounting for dive
 ## Example
 
 ### User Input
-Interests: tennis, fitness, food
-Feed size: 4
-Diversity: medium
+- Interests: tennis, fitness, food
+- Feed size: 4
+- Diversity: medium
 
 ### Dataset
-tennis drills for beginners
-cool outfit ideas
-pilates core routine
-healthy smoothie recipes
-fun travel plans
-gym strength workout
-best tourist destinations
+- tennis drills for beginners
+- cool outfit ideas
+- pilates core routine
+- healthy smoothie recipes
+- fun travel plans
+- gym strength workout
+- best tourist destinations
 
 ### Output
 --- Your Personalized Feed ---
-tennis drills for beginners
-healthy smoothie recipes
-pilates core routine
-gym strength workout
+- tennis drills for beginners
+- healthy smoothie recipes
+- pilates core routine
+- gym strength workout
 
 --- Explanation ---
 Pins were selected to match your interests while avoiding repetitive content.
