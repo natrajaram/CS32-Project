@@ -84,17 +84,6 @@ Pins were selected to match your interests while avoiding repetitive content.
 
 ---
 
-## Tech Stack
-- Python 3
-- Core concepts:
-  - Lists
-  - Dictionaries
-  - String processing
-  - Greedy algorithms
-
-No external libraries required.
-
----
-
-## Code Structure
+### Credits
+This project is inspired by real-world recommendation systems used in platforms like Pinterest and other content discovery applications.
 
