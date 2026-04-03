@@ -65,12 +65,12 @@ Diversity: medium
 
 ### Dataset
 tennis drills for beginners
-advanced tennis workout
+cool outfit ideas
 pilates core routine
 healthy smoothie recipes
-easy pasta dinner
+fun travel plans
 gym strength workout
-tennis outfit ideas
+best tourist destinations
 
 ### Output
 --- Your Personalized Feed ---
@@ -81,3 +81,20 @@ gym strength workout
 
 --- Explanation ---
 Pins were selected to match your interests while avoiding repetitive content.
+
+---
+
+## Tech Stack
+- Python 3
+- Core concepts:
+  - Lists
+  - Dictionaries
+  - String processing
+  - Greedy algorithms
+
+No external libraries required.
+
+---
+
+## Code Structure
+
