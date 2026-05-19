@@ -137,4 +137,4 @@ The diversity control was originally three labelled buckets (`low`, `medium`, `h
 
 Algorithmic inspiration:
 - Carbonell, J. & Goldstein, J. (1998). *The use of MMR, diversity-based reranking for reordering documents and producing summaries.* ACM SIGIR.
-- Pinterest Engineering Blog — content recommendation and diversity research
+- Pinterest — content recommendation and diversity research
