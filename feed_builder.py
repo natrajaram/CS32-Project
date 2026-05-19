@@ -97,7 +97,7 @@ def categorize_interest(word: str) -> str:
 def tokenize(text: str) -> set[str]:
     """
     Split text into a set of lowercase tokens, filtering short stop-words.
-    Short words (≤2 chars) are excluded to avoid noise in similarity scoring.
+    Short words (≤2 characters) are excluded to avoid noise in similarity scoring.
     """
     return {w.lower() for w in text.split() if len(w) > 2}
 
