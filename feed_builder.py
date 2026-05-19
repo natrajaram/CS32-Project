@@ -231,9 +231,9 @@ def build_feed(
         })
 
     selected: list[dict] = []
-    remaining = list(scored)  # shallow copy; we'll pop from this
+    remaining = list(scored)
 
-    # Step 2: greedy MMR selection loop
+    # Step 2: MMR selection loop
     while len(selected) < feed_size and remaining:
 
         # Recompute adjusted scores based on current selected set
