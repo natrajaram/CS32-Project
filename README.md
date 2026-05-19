@@ -69,13 +69,13 @@ Short tokens (≤ 2 characters) are excluded to reduce noise from stop words.
 Enter your interests: tennis, yoga, coffee
 Feed size: 4
 Diversity level: medium
-════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════
 YOUR PERSONALIZED FEED
-════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════
 Interests : tennis, yoga, coffee
 Feed size : 4
 Diversity : λ = 50%
-────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────
 #1  tennis drills for beginners
 Raw score: 2.0  →  Final score: 2.00
 ↳ Matched interests: tennis
