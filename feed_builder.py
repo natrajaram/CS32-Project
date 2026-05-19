@@ -194,7 +194,7 @@ def build_feed(
 
     Algorithm:
         1. Score all candidate pins by relevance to the user's interests.
-        2. Greedily select pins one at a time:
+        2. Select pins one at a time:
            a. For each remaining candidate, compute an adjusted score:
               adjusted = relevance - λ × Σ sim(candidate, already_selected)
            b. Pick the candidate with the highest adjusted score.
