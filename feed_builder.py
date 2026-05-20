@@ -26,7 +26,6 @@ CATEGORY_MAP: dict[str, list[str]] = {
         "food", "cooking", "baking", "pasta", "coffee", "dessert",
         "cake", "bread", "smoothie", "recipe", "meal", "dinner",
         "lunch", "breakfast", "vegan", "vegetarian", "snacks", "sushi",
-        "gluten free", "keto", "cookies", "ice cream", "pizza",
     ],
     "physical": [
         "fitness", "workout", "gym", "lifting", "running", "cardio",
@@ -35,7 +34,7 @@ CATEGORY_MAP: dict[str, list[str]] = {
     ],
     "material": [
         "fashion", "clothes", "outfits", "style", "shoes", "streetwear",
-        "accessories", "jewelry", "bags", "photography", "runway",
+        "accessories", "jewelry", "bags", "photography",
     ],
 }
 
@@ -96,8 +95,8 @@ def categorize_interest(word: str) -> str:
 
 def tokenize(text: str) -> set[str]:
     """
-    Split text into a set of lowercase tokens, filtering short stop-words.
-    Short words (≤2 characters) are excluded to avoid noise in similarity scoring.
+    Split text into a set of lowercase tokens, filtering short stop words.
+    Short words (≤2 chars) are excluded to avoid noise in similarity scoring.
     """
     return {w.lower() for w in text.split() if len(w) > 2}
 
@@ -184,21 +183,49 @@ def generate_candidate_pins(interests: list[str]) -> list[str]:
 # Core MMR algorithm
 # ---------------------------------------------------------------------------
 
+def group_pins_by_category(
+    scored: list[dict],
+    interests: list[str],
+) -> dict[str, list[dict]]:
+    """
+    Group scored pins by the category of the interest that generated them.
+
+    Each pin is attributed to the first interest whose keyword appears in the
+    pin text. Falls back to 'other' if no match is found.
+    """
+    groups: dict[str, list[dict]] = {}
+
+    for item in scored:
+        pin_tokens = tokenize(item["pin"])
+        assigned = "other"
+
+        for interest in interests:
+            if interest in pin_tokens or any(interest in t for t in pin_tokens):
+                assigned = categorize_interest(interest)
+                break
+
+        groups.setdefault(assigned, []).append(item)
+
+    return groups
+
+
 def build_feed(
     interests: list[str],
     feed_size: int,
     diversity_lambda: float,
 ) -> list[dict]:
     """
-    Select a diverse, relevant feed using Maximal Marginal Relevance (MMR).
+    Select a diverse, relevant feed using category-slot reservation + MMR.
 
     Algorithm:
         1. Score all candidate pins by relevance to the user's interests.
-        2. Select pins one at a time:
-           a. For each remaining candidate, compute an adjusted score:
-              adjusted = relevance - λ × Σ sim(candidate, already_selected)
-           b. Pick the candidate with the highest adjusted score.
-           c. Add it to the selected set and repeat.
+        2. Group pins by interest category (sports, culinary, physical, etc.).
+        3. Reserve feed slots across categories in round-robin order so that
+           all same category interests cannot flood the feed with near identical
+           pin titles. Each category gets at least one slot before any category
+           gets a second.
+        4. Within each slot, apply MMR to pick the best pin from that category's
+           pool that is least similar to already selected pins.
 
     Args:
         interests        — list of user interest keywords
@@ -212,13 +239,14 @@ def build_feed(
             final_score   — adjusted score after penalty
             matches       — interest tokens that matched this pin
             penalty_from  — list of (pin, similarity) pairs causing penalties
+            category      — the category slot this pin was selected under
     """
     candidates = generate_candidate_pins(interests)
 
     if not candidates:
         return []
 
-    # Step 1: compute raw relevance scores for all candidates
+    # Step 1: score all candidates
     scored = []
     for pin in candidates:
         raw_score, matches = score_relevance(pin, interests)
@@ -228,32 +256,56 @@ def build_feed(
             "final_score": raw_score,
             "matches": matches,
             "penalty_from": [],
+            "category": "other",
         })
 
+    # Step 2: group pins by category
+    groups = group_pins_by_category(scored, interests)
+
+    # Build a slot schedule across available categories.
+    # ex. if interests are all sports → schedule still cycles through
+    # sub-interests so pins like "tennis drills" and "tennis workout" aren't
+    # selected back-to-back before other keywords get a chance.
+    category_order = list(groups.keys())
+    slot_schedule: list[str] = []
+    i = 0
+    while len(slot_schedule) < feed_size:
+        slot_schedule.append(category_order[i % len(category_order)])
+        i += 1
+
     selected: list[dict] = []
-    remaining = list(scored)
 
-    # Step 2: MMR selection loop
-    while len(selected) < feed_size and remaining:
+    # Step 3: fill each slot using MMR within the assigned category pool
+    for slot_category in slot_schedule:
+        pool = groups.get(slot_category, [])
+        # Remove already selected pins from this pool
+        pool = [p for p in pool if p not in selected]
 
-        # Recompute adjusted scores based on current selected set
-        for candidate in remaining:
+        if not pool:
+            # Category exhausted — fall back to any remaining unselected pin
+            all_remaining = [p for p in scored if p not in selected]
+            if not all_remaining:
+                break
+            pool = all_remaining
+
+        # Recompute MMR-adjusted scores for this pool against already selected
+        for candidate in pool:
             penalty = 0.0
             penalty_from = []
 
             for sel in selected:
                 sim = jaccard_similarity(candidate["pin"], sel["pin"])
                 penalty += diversity_lambda * sim * candidate["raw_score"]
-                if sim > 0.05:  # only record meaningful similarity contributions
+                if sim > 0.05:
                     penalty_from.append((sel["pin"], round(sim, 3)))
 
             candidate["final_score"] = candidate["raw_score"] - penalty
             candidate["penalty_from"] = penalty_from
+            candidate["category"] = slot_category
 
-        # Pick the candidate with the highest adjusted score
-        remaining.sort(key=lambda c: c["final_score"], reverse=True)
-        best = remaining.pop(0)
-        selected.append(best)
+        # Pick the best candidate from this category's pool
+        pool.sort(key=lambda c: c["final_score"], reverse=True)
+        selected.append(pool[0])
 
     return selected
 
@@ -267,7 +319,7 @@ def print_separator(char: str = "─", width: int = 60) -> None:
 
 
 def print_feed(feed: list[dict], interests: list[str], diversity_lambda: float) -> None:
-    """Pretty-print the final selected feed with per-pin explanations."""
+    """Print the final selected feed with per pin explanations."""
     print_separator("═")
     print("  YOUR PERSONALIZED FEED")
     print_separator("═")
@@ -278,17 +330,18 @@ def print_feed(feed: list[dict], interests: list[str], diversity_lambda: float) 
 
     for i, item in enumerate(feed, start=1):
         penalty_note = (
-            f"  ↳ Similarity penalty applied (overlaps with {len(item['penalty_from'])} earlier pin(s))"
+            f"  -> Similarity penalty applied (overlaps with {len(item['penalty_from'])} earlier pin(s))"
             if item["penalty_from"]
-            else "  ↳ No significant overlap with earlier picks"
+            else "  -> No significant overlap with earlier picks"
         )
         match_note = (
             f"  ↳ Matched interests: {', '.join(item['matches'])}"
             if item["matches"]
-            else "  ↳ No direct keyword matches (category-based selection)"
+            else "  -> No direct keyword matches (category-based selection)"
         )
 
-        print(f"\n  #{i}  {item['pin']}")
+        cat_label = item.get("category", "")
+        print(f"\n  #{i}  {item['pin']}  [{cat_label}]")
         print(f"       Raw score: {item['raw_score']:.1f}  →  Final score: {item['final_score']:.2f}")
         print(match_note)
         print(penalty_note)
@@ -302,7 +355,7 @@ def print_full_scoring(
     selected_pins: set[str],
     diversity_lambda: float,
 ) -> None:
-    """Show the full candidate pool with raw scores for debugging/demo purposes."""
+    """Show the full candidate pool with raw scores"""
     candidates = generate_candidate_pins(interests)
 
     print_separator()
@@ -329,7 +382,7 @@ def print_full_scoring(
 # ---------------------------------------------------------------------------
 
 def get_interests() -> list[str]:
-    print("\n  Enter your interests (comma-separated, e.g. tennis, yoga, coffee):")
+    print("\n  Enter your interests (comma-separated, ex. tennis, yoga, coffee):")
     raw = input("  > ").strip()
     interests = [w.strip().lower() for w in raw.split(",") if w.strip()]
     if not interests:
@@ -339,7 +392,7 @@ def get_interests() -> list[str]:
 
 
 def get_feed_size() -> int:
-    raw = input("\n  How many pins in your feed? (default 5; between 1-20): ").strip()
+    raw = input("\n  How many pins in your feed? (default 5, between 1-15): ").strip()
     try:
         n = int(raw)
         return max(1, min(n, 20))  # clamp between 1 and 20
@@ -371,7 +424,7 @@ def main() -> None:
     print()
     print_separator("═")
     print("  DIVERSITY-AWARE FEED BUILDER")
-    print("  Balancing relevance and diversity")
+    print("  Balancing relevance and diversity with MMR")
     print_separator("═")
 
     # Gather user inputs
